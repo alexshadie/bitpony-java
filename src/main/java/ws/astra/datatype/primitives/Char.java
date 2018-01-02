@@ -5,6 +5,8 @@ import ws.astra.datatype.Datatype;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Arrays;
 
 /**
  * Naive String representation.
@@ -16,16 +18,7 @@ public class Char extends Datatype<String> {
      * @param value Value
      */
     public Char(String value) {
-        super(value);
-    }
-
-    /**
-     * Binary ctor
-     * @param value Binary value
-     * @throws IOException
-     */
-    public Char(byte[] value) throws IOException {
-        super(value);
+        this.value = value;
     }
 
     /**
@@ -34,11 +27,17 @@ public class Char extends Datatype<String> {
      * @throws IOException
      */
     public Char(InputStream stream) throws IOException {
-        super(stream);
+        throw new IOException("Unbounded stream");
     }
 
+    /**
+     * Stream ctor
+     * @param stream Source stream
+     * @param length bytes to be captured
+     * @throws IOException
+     */
     public Char(InputStream stream, int length) throws IOException {
-        value = readFromStream(stream, length);
+        this.value = read(stream, length);
     }
 
     /**
@@ -47,35 +46,37 @@ public class Char extends Datatype<String> {
      * @return Value
      * @throws IOException
      */
-    public String readFromStream(InputStream stream) throws IOException {
-        throw new RuntimeException("Stream reading not supported");
-    }
-
-    public String readFromStream(InputStream stream, int length) throws IOException {
-        byte[] data = new byte[length];
-        stream.read(data);
-        return fromBinary(data);
+    @Override
+    public String read(InputStream stream) throws IOException {
+        throw new IOException("Unbounded stream");
     }
 
     /**
-     * Binary reader
-     * @param value Source data
+     * Stream reader
+     * @param stream Source stream
+     * @param length Bytes to be captured
      * @return Value
      * @throws IOException
      */
-    public String fromBinary(byte[] value) throws IOException {
-        ArrayUtils.reverse(value);
-        return new String(value);
+    public String read(InputStream stream, int length) throws IOException {
+        byte[] data = new byte[length];
+        int readCount = stream.read(data, 0, length);
+        if (readCount < length) {
+            throw new IOException(Datatype.ERR_SHORT_STREAM);
+        }
+        ArrayUtils.reverse(data);
+        return new String(data);
     }
 
     /**
-     * Binary representation of value
-     * @param value Source value
-     * @return Binary value
+     * Stream writer
+     * @param stream Destination stream
+     * @throws IOException
      */
-    public byte[] toBinary(String value) {
-        byte[] data = value.getBytes();
+    @Override
+    public void write(OutputStream stream) throws IOException {
+        byte[] data = Arrays.copyOf(this.value.getBytes(), this.value.getBytes().length);
         ArrayUtils.reverse(data);
-        return data;
+        stream.write(data);
     }
 }

@@ -5,6 +5,7 @@ import ws.astra.datatype.Datatype;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 import static org.joou.Unsigned.ubyte;
 
@@ -18,16 +19,7 @@ public class UInt8 extends Datatype<UByte> {
      * @param value Value
      */
     public UInt8(UByte value) {
-        super(value);
-    }
-
-    /**
-     * Binary ctor
-     * @param value Binary value
-     * @throws IOException
-     */
-    public UInt8(byte[] value) throws IOException {
-        super(value);
+        this.value = value;
     }
 
     /**
@@ -36,7 +28,7 @@ public class UInt8 extends Datatype<UByte> {
      * @throws IOException
      */
     public UInt8(InputStream stream) throws IOException {
-        super(stream);
+        this.value = this.read(stream);
     }
 
     /**
@@ -45,37 +37,25 @@ public class UInt8 extends Datatype<UByte> {
      * @return Value
      * @throws IOException
      */
-    public UByte readFromStream(InputStream stream) throws IOException {
+    @Override
+    public UByte read(InputStream stream) throws IOException {
         byte[] data = new byte[1];
-        int length = stream.read(data);
-
-        if (length < 1) {
-            throw new IOException("");
+        if (stream.read(data) < 1) {
+            throw new IOException(Datatype.ERR_SHORT_STREAM);
         }
-
-        return fromBinary(data);
+        return ubyte(data[0]);
     }
 
     /**
-     * Binary reader
-     * @param value Source data
-     * @return Value
+     * Stream writer
+     * @param stream Destination stream
      * @throws IOException
      */
-    public UByte fromBinary(byte[] value) throws IOException {
-        if (value.length != 1) {
-            throw new IOException("");
-        }
-        return ubyte(value[0]);
-    }
-
-    /**
-     * Binary representation of value
-     * @param value Source value
-     * @return Binary value
-     */
-    public byte[] toBinary(UByte value) {
-        return new byte[]{this.getValue().byteValue()};
+    @Override
+    public void write(OutputStream stream) throws IOException {
+        byte data[] = new byte[1];
+        data[0] = this.value.byteValue();
+        stream.write(data);
     }
 
     /**

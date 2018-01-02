@@ -5,12 +5,12 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.joou.Unsigned.ulong;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertThat;
 
 public class UInt64Test {
@@ -19,10 +19,10 @@ public class UInt64Test {
         InputStream source = new ByteArrayInputStream(data);
         UInt64 d = new UInt64(source);
         ULong v = d.getValue();
-        assertThat(expected, equalTo(d.getValue()));
+        assertThat(d.getValue(), equalTo(expected));
         if (scalarValue >= 0) {
             // Skip for very big long, that are treated as negative
-            assertThat((long) scalarValue, equalTo(d.getScalarValue()));
+            assertThat(d.getScalarValue(), equalTo(scalarValue));
         }
     }
 
@@ -32,16 +32,24 @@ public class UInt64Test {
                 0x23, 0x01, (byte)0xff, 0x55, 0x00, 0x00, 0x00, 0x00,
                 (byte)0xde, 0x54, (byte)0xcc, 0x11, 0x00, 0x00, 0x00, 0x00,
                 0x05, (byte)0xfa, (byte)0x85, 0x65, 0x00, 0x00, 0x00, 0x00,
+                (byte)0xde, 0x54, (byte)0xcc, 0x11, 0x00, 0x00, 0x00, 0x7f,
+                0x05, (byte)0xfa, (byte)0x85, 0x65, 0x00, 0x00, 0x00, (byte)0xff,
         });
         UInt64 d = new UInt64(source);
-        assertThat(ulong(1442775331), equalTo(d.getValue()));
-        assertThat(16, equalTo(source.available()));
+        assertThat(d.getValue(), equalTo(ulong(1442775331)));
+        assertThat(source.available(), equalTo(32));
         d = new UInt64(source);
-        assertThat(ulong(298603742), equalTo(d.getValue()));
-        assertThat(8, equalTo(source.available()));
+        assertThat(d.getValue(), equalTo(ulong(298603742)));
+        assertThat(source.available(), equalTo(24));
         d = new UInt64(source);
-        assertThat(ulong(1703279109), equalTo(d.getValue()));
-        assertThat(0, equalTo(source.available()));
+        assertThat(d.getValue(), equalTo(ulong(1703279109)));
+        assertThat(source.available(), equalTo(16));
+        d = new UInt64(source);
+        assertThat(d.getValue(), equalTo(ulong(9151314443115451614L)));
+        assertThat(source.available(), equalTo(8));
+        d = new UInt64(source);
+        assertThat(d.getValue(), equalTo(ulong("18374686481374902789")));
+        assertThat(source.available(), equalTo(0));
     }
 
     @Test(expectedExceptions = IOException.class)
@@ -50,35 +58,49 @@ public class UInt64Test {
         new UInt64(source);
     }
 
-    @Test(dataProvider = "testData")
-    public void testFromBinary(byte[] data, ULong expected, long scalarValue) throws Exception {
-        UInt64 d = new UInt64(data);
-        assertThat(expected, equalTo(d.getValue()));
-        if (scalarValue >= 0) {
-            // Skip for very big long, that are treated as negative
-            assertThat((long) scalarValue, equalTo(d.getScalarValue()));
-        }
-    }
-
     @Test(expectedExceptions = IOException.class)
-    public void testFromBinaryFailsIfLowLength() throws Exception {
-        new UInt64(new byte[]{});
-    }
-
-    @Test(expectedExceptions = IOException.class)
-    public void testFromBinaryFailsIfLowLength1() throws Exception {
-        new UInt64(new byte[]{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06});
-    }
-
-    @Test(expectedExceptions = IOException.class)
-    public void testFromBinaryFailsIfExtraLength() throws Exception {
-        new UInt64(new byte[]{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09});
+    public void testReadFromShortStream() throws IOException {
+        InputStream source = new ByteArrayInputStream(new byte[]{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06});
+        new UInt64(source);
     }
 
     @Test(dataProvider = "testData")
-    public void testGetBytes(byte[] expected, ULong source, long scalarValue) throws Exception {
+    public void testWrite(byte[] expected, ULong source, long scalarValue) throws Exception {
         UInt64 d = new UInt64(source);
-        assertArrayEquals(expected, d.getBytes());
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        d.write(stream);
+        assertThat(stream.toByteArray(), equalTo(expected));
+    }
+
+    @Test
+    public void testWriteBatch() throws IOException {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        (new UInt64(ulong(12))).write(stream);
+        (new UInt64(ulong(127))).write(stream);
+        (new UInt64(ulong(255))).write(stream);
+        (new UInt64(ulong(32767))).write(stream);
+        (new UInt64(ulong(65535))).write(stream);
+        (new UInt64(ulong(2147483647))).write(stream);
+        (new UInt64(ulong(4294967295L))).write(stream);
+        (new UInt64(ulong(9223372036854775807L))).write(stream);
+        (new UInt64(ulong("18446744073709551615"))).write(stream);
+        assertThat(stream.size(), equalTo(72));
+        assertThat(
+                stream.toByteArray(),
+                equalTo(
+                        new byte[]{
+                                0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                0x7f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                (byte)0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                (byte)0xff, 0x7f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                (byte)0xff, (byte)0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                (byte)0xff, (byte)0xff, (byte)0xff, 0x7f, 0x00, 0x00, 0x00, 0x00,
+                                (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, 0x00, 0x00, 0x00, 0x00,
+                                (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, 0x7f,
+                                (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff,
+                        }
+                )
+        );
     }
 
     @DataProvider

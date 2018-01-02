@@ -5,6 +5,7 @@ import ws.astra.datatype.Datatype;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 import static org.joou.Unsigned.uint;
 
@@ -18,16 +19,7 @@ public class UInt32 extends Datatype<UInteger> {
      * @param value Value
      */
     public UInt32(UInteger value) {
-        super(value);
-    }
-
-    /**
-     * Binary ctor
-     * @param value Binary value
-     * @throws IOException
-     */
-    public UInt32(byte[] value) throws IOException {
-        super(value);
+        this.value = value;
     }
 
     /**
@@ -36,7 +28,7 @@ public class UInt32 extends Datatype<UInteger> {
      * @throws IOException
      */
     public UInt32(InputStream stream) throws IOException {
-        super(stream);
+        this.value = this.read(stream);
     }
 
     /**
@@ -45,49 +37,38 @@ public class UInt32 extends Datatype<UInteger> {
      * @return Value
      * @throws IOException
      */
-    public UInteger readFromStream(InputStream stream) throws IOException {
+    @Override
+    public UInteger read(InputStream stream) throws IOException {
         byte[] data = new byte[4];
-        int length = stream.read(data);
 
-        if (length != 4) {
+        if (stream.read(data) != 4) {
             throw new IOException("");
         }
 
-        return fromBinary(data);
-    }
-
-    /**
-     * Binary reader
-     * @param value Source data
-     * @return Value
-     * @throws IOException
-     */
-    public UInteger fromBinary(byte[] value) throws IOException {
-        if (value.length != 4) {
-            throw new IOException("");
-        }
         return uint(
-                ((short)value[0] & 0x00ff) |
-                        ((short)value[1] & 0x00ff) << 8 |
-                        ((short)value[2] & 0x00ff) << 16 |
-                        ((short)value[3] & 0x00ff) << 24
+            ((short)data[0] & 0x00ff) |
+                ((short)data[1] & 0x00ff) << 8 |
+                ((short)data[2] & 0x00ff) << 16 |
+                ((short)data[3] & 0x00ff) << 24
         );
     }
 
     /**
-     * Binary representation of value
-     * @param value Source value
-     * @return Binary value
+     * Stream writer
+     * @param stream Destination stream
+     * @throws IOException
      */
-    public byte[] toBinary(UInteger value) {
+    @Override
+    public void write(OutputStream stream) throws IOException {
         int intVal = value.intValue();
-        return new byte[]{
+        stream.write(
+            new byte[]{
                 (byte)(intVal & 0x00ff),
                 (byte)(intVal >> 8 & 0x00ff),
                 (byte)(intVal >> 16 & 0x00ff),
                 (byte)(intVal >> 24),
-
-        };
+            }
+        );
     }
 
     /**

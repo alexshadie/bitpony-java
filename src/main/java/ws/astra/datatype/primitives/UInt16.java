@@ -5,6 +5,7 @@ import ws.astra.datatype.Datatype;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 import static org.joou.Unsigned.ushort;
 
@@ -18,16 +19,7 @@ public class UInt16 extends Datatype<UShort> {
      * @param value Value
      */
     public UInt16(UShort value) {
-        super(value);
-    }
-
-    /**
-     * Binary ctor
-     * @param value Binary value
-     * @throws IOException
-     */
-    public UInt16(byte[] value) throws IOException {
-        super(value);
+        this.value = value;
     }
 
     /**
@@ -36,7 +28,7 @@ public class UInt16 extends Datatype<UShort> {
      * @throws IOException
      */
     public UInt16(InputStream stream) throws IOException {
-        super(stream);
+        this.value = this.read(stream);
     }
 
     /**
@@ -45,44 +37,33 @@ public class UInt16 extends Datatype<UShort> {
      * @return Value
      * @throws IOException
      */
-    public UShort readFromStream(InputStream stream) throws IOException {
+    @Override
+    public UShort read(InputStream stream) throws IOException {
         byte[] data = new byte[2];
-        int length = stream.read(data);
-
-        if (length != 2) {
-            throw new IOException("");
+        if (stream.read(data) != 2) {
+            throw new IOException(Datatype.ERR_SHORT_STREAM);
         }
 
-        return fromBinary(data);
-    }
-
-    /**
-     * Binary reader
-     * @param value Source data
-     * @return Value
-     * @throws IOException
-     */
-    public UShort fromBinary(byte[] value) throws IOException {
-        if (value.length != 2) {
-            throw new IOException("");
-        }
         return ushort(
-                (value[0] & 0x000000ff) |
-                    (value[1] << 8 & 0x0000ff00)
+                data[0] & 0x0ff |
+                        data[1] << 8 & 0x0ff00
         );
     }
 
     /**
-     * Binary representation of value
-     * @param value Source value
-     * @return Binary value
+     * Stream writer
+     * @param stream Destination stream
+     * @throws IOException
      */
-    public byte[] toBinary(UShort value) {
+    @Override
+    public void write(OutputStream stream) throws IOException {
         short shortVal = value.shortValue();
-        return new byte[]{
+        stream.write(
+            new byte[]{
                 (byte)(shortVal & 0x00ff),
                 (byte)(shortVal >> 8)
-        };
+            }
+        );
     }
 
     /**

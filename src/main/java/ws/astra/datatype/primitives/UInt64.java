@@ -1,15 +1,12 @@
 package ws.astra.datatype.primitives;
 
-import org.joou.UByte;
-import org.joou.UInteger;
 import org.joou.ULong;
 import ws.astra.datatype.Datatype;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.math.BigInteger;
+import java.io.OutputStream;
 
-import static org.joou.Unsigned.uint;
 import static org.joou.Unsigned.ulong;
 
 /**
@@ -23,16 +20,7 @@ public class UInt64 extends Datatype<ULong> {
      * @param value Value
      */
     public UInt64(ULong value) {
-        super(value);
-    }
-
-    /**
-     * Binary ctor
-     * @param value Binary value
-     * @throws IOException
-     */
-    public UInt64(byte[] value) throws IOException {
-        super(value);
+        this.value = value;
     }
 
     /**
@@ -41,7 +29,7 @@ public class UInt64 extends Datatype<ULong> {
      * @throws IOException
      */
     public UInt64(InputStream stream) throws IOException {
-        super(stream);
+        this.value = this.read(stream);
     }
 
     /**
@@ -50,64 +38,45 @@ public class UInt64 extends Datatype<ULong> {
      * @return Value
      * @throws IOException
      */
-    public ULong readFromStream(InputStream stream) throws IOException {
+    @Override
+    public ULong read(InputStream stream) throws IOException {
         byte[] data = new byte[8];
         int length = stream.read(data);
 
         if (length != 8) {
-            throw new IOException("");
+            throw new IOException(Datatype.ERR_SHORT_STREAM);
         }
 
-        return fromBinary(data);
-    }
-
-    /**
-     * Binary reader
-     * @param value Source data
-     * @return Value
-     * @throws IOException
-     */
-    public ULong fromBinary(byte[] value) throws IOException {
-        if (value.length != 8) {
-            throw new IOException("");
-        }
-        byte byte1 = (byte)((long)value[7] & 0x00ff);
-        byte byte2 = (byte)((long)value[6] & 0x00ff);
-        byte byte3 = (byte)((long)value[5] & 0x00ff);
-        byte byte4 = (byte)((long)value[4] & 0x00ff);
-        byte byte5 = (byte)((long)value[3] & 0x00ff);
-        byte byte6 = (byte)((long)value[2] & 0x00ff);
-        byte byte7 = (byte)((long)value[1] & 0x00ff);
-        byte byte8 = (byte)((long)value[0] & 0x00ff);
         return ulong(
-                ((long)value[0] & 0x00ff) |
-                        ((long)value[1] & 0x00ff) << 8 |
-                        ((long)value[2] & 0x00ff) << 16 |
-                        ((long)value[3] & 0x00ff) << 24 |
-                        ((long)value[4] & 0x00ff) << 32 |
-                        ((long)value[5] & 0x00ff) << 40 |
-                        ((long)value[6] & 0x00ff) << 48 |
-                        ((long)value[7] & 0x00ff) << 56
+                ((long)data[0] & 0x0ff) |
+                        ((long)data[1] & 0x0ff) << 8 |
+                        ((long)data[2] & 0x0ff) << 16 |
+                        ((long)data[3] & 0x0ff) << 24 |
+                        ((long)data[4] & 0x0ff) << 32 |
+                        ((long)data[5] & 0x0ff) << 40 |
+                        ((long)data[6] & 0x0ff) << 48 |
+                        ((long)data[7] & 0x0ff) << 56
         );
     }
 
     /**
-     * Binary representation of value
-     * @param value Source value
-     * @return Binary value
+     * Stream writer
+     * @param stream Destination stream
+     * @throws IOException
      */
-    public byte[] toBinary(ULong value) {
+    @Override
+    public void write(OutputStream stream) throws IOException {
         long intVal = value.longValue();
-        return new byte[]{
-                (byte)(intVal & 0x00ff),
-                (byte)(intVal >> 8 & 0x00ff),
-                (byte)(intVal >> 16 & 0x00ff),
-                (byte)(intVal >> 24 & 0x00ff),
-                (byte)(intVal >> 32 & 0x00ff),
-                (byte)(intVal >> 40 & 0x00ff),
-                (byte)(intVal >> 48 & 0x00ff),
+        stream.write(new byte[]{
+                (byte)(intVal & 0x0ff),
+                (byte)(intVal >> 8 & 0x0ff),
+                (byte)(intVal >> 16 & 0x0ff),
+                (byte)(intVal >> 24 & 0x0ff),
+                (byte)(intVal >> 32 & 0x0ff),
+                (byte)(intVal >> 40 & 0x0ff),
+                (byte)(intVal >> 48 & 0x0ff),
                 (byte)(intVal >> 56),
-        };
+        });
     }
 
     /**

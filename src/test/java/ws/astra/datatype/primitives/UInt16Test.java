@@ -5,6 +5,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -17,22 +18,22 @@ public class UInt16Test {
     public void testReadFromStream(byte[] data, UShort expected, int scalarValue) throws Exception {
         InputStream source = new ByteArrayInputStream(data);
         UInt16 d = new UInt16(source);
-        assertThat(expected, equalTo(d.getValue()));
-        assertThat((int)scalarValue, equalTo(d.getScalarValue()));
+        assertThat(d.getValue(), equalTo(expected));
+        assertThat(d.getScalarValue(), equalTo(scalarValue));
     }
 
     @Test
-    public void testReadFromStreamRemaining() throws IOException {
+    public void testReadOneByOne() throws IOException {
         InputStream source = new ByteArrayInputStream(new byte[]{0x23, 0x01, (byte)0xde, 0x11, 0x05, (byte)0xfa});
         UInt16 d = new UInt16(source);
-        assertThat(ushort(291), equalTo(d.getValue()));
-        assertThat(4, equalTo(source.available()));
+        assertThat(d.getValue(), equalTo(ushort(291)));
+        assertThat(source.available(), equalTo(4));
         d = new UInt16(source);
-        assertThat(ushort(4574), equalTo(d.getValue()));
-        assertThat(2, equalTo(source.available()));
+        assertThat(d.getValue(), equalTo(ushort(4574)));
+        assertThat(source.available(), equalTo(2));
         d = new UInt16(source);
-        assertThat(ushort(64005), equalTo(d.getValue()));
-        assertThat(0, equalTo(source.available()));
+        assertThat(d.getValue(), equalTo(ushort(64005)));
+        assertThat(source.available(), equalTo(0));
     }
 
     @Test(expectedExceptions = IOException.class)
@@ -41,32 +42,39 @@ public class UInt16Test {
         new UInt16(source);
     }
 
-    @Test(dataProvider = "testData")
-    public void testFromBinary(byte[] data, UShort expected, int scalarValue) throws Exception {
-        UInt16 d = new UInt16(data);
-        assertThat(expected, equalTo(d.getValue()));
-        assertThat((int)scalarValue, equalTo(d.getScalarValue()));
-    }
-
     @Test(expectedExceptions = IOException.class)
-    public void testFromBinaryFailsIfLowLength() throws Exception {
-        new UInt16(new byte[]{});
-    }
-
-    @Test(expectedExceptions = IOException.class)
-    public void testFromBinaryFailsIfLowLength1() throws Exception {
-        new UInt16(new byte[]{0x00});
-    }
-
-    @Test(expectedExceptions = IOException.class)
-    public void testFromBinaryFailsIfExtraLength() throws Exception {
-        new UInt16(new byte[]{0x01, 0x02, 0x03});
+    public void testReadFromShortStream() throws IOException {
+        InputStream source = new ByteArrayInputStream(new byte[]{0x12});
+        new UInt16(source);
     }
 
     @Test(dataProvider = "testData")
-    public void testGetBytes(byte[] expected, UShort source, int scalarValue) throws Exception {
+    public void testWrite(byte[] expected, UShort source, int scalarValue) throws Exception {
         UInt16 d = new UInt16(source);
-        assertArrayEquals(expected, d.getBytes());
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        d.write(stream);
+        assertThat(stream.toByteArray(), equalTo(expected));
+    }
+
+    @Test
+    public void testWriteBatch() throws IOException {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        (new UInt16(ushort(12))).write(stream);
+        (new UInt16(ushort(127))).write(stream);
+        (new UInt16(ushort(255))).write(stream);
+        (new UInt16(ushort(32767))).write(stream);
+        (new UInt16(ushort(65535))).write(stream);
+        assertThat(stream.size(), equalTo(10));
+        assertThat(
+            stream.toByteArray(),
+            equalTo(new byte[]{
+                0x0c, 0x00,
+                0x7f, 0x00,
+                (byte)0xff, 0x00,
+                (byte)0xff, 0x7f,
+                (byte)0xff, (byte)0xff
+            })
+        );
     }
 
     @DataProvider

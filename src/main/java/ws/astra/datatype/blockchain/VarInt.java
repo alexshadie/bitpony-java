@@ -1,7 +1,8 @@
 package ws.astra.datatype.blockchain;
 
-import com.google.common.primitives.Bytes;
+import org.joou.UInteger;
 import org.joou.ULong;
+import org.joou.UShort;
 import ws.astra.datatype.Datatype;
 import ws.astra.datatype.primitives.UInt16;
 import ws.astra.datatype.primitives.UInt32;
@@ -11,7 +12,7 @@ import ws.astra.helper.UMath;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
+import java.io.OutputStream;
 
 import static org.joou.Unsigned.*;
 
@@ -21,16 +22,7 @@ public class VarInt extends Datatype<ULong> {
      * @param value Value
      */
     public VarInt(ULong value) {
-        super(value);
-    }
-
-    /**
-     * Binary ctor
-     * @param value Binary value
-     * @throws IOException
-     */
-    public VarInt(byte[] value) throws IOException {
-        super(value);
+        this.value = value;
     }
 
     /**
@@ -39,77 +31,64 @@ public class VarInt extends Datatype<ULong> {
      * @throws IOException
      */
     public VarInt(InputStream stream) throws IOException {
-        super(stream);
+        this.value = this.read(stream);
     }
 
     /**
      * Stream reader
-     * @todo Add error hanling
      * @param stream Source stream
      * @return Value
      * @throws IOException
      */
-    public ULong readFromStream(InputStream stream) throws IOException {
-        byte mark[] = new byte[1];
-        byte content[];
+    @Override
+    public ULong read(InputStream stream) throws IOException {
+        UInt8 mark = new UInt8(stream);
 
-        stream.read(mark);
-        switch (mark[0]) {
+        switch (mark.getValue().byteValue()) {
             case (byte)0xff:
-                content = new byte[8];
-                stream.read(content);
-                break;
-            case (byte)0xfe:
-                content = new byte[4];
-                stream.read(content);
-                break;
-            case (byte)0xfd:
-                content = new byte[2];
-                stream.read(content);
-                break;
-            default:
-                content = new byte[0];
-                break;
-        }
+                ULong readLong = new UInt64(stream).getValue();
+                if (readLong.compareTo(ulong(0x0ffffffffL)) <= 0) {
+                    throw new IOException(Datatype.ERR_MALFORMED_BINARY);
+                }
+                return readLong;
 
-        return this.fromBinary(Bytes.concat(mark, content));
+            case (byte)0xfe:
+                UInteger readInt = new UInt32(stream).getValue();
+                if (readInt.compareTo(uint(0x0ffffL)) <= 0) {
+                    throw new IOException(Datatype.ERR_MALFORMED_BINARY);
+                }
+                return UMath.UIntegerToULong(readInt);
+
+            case (byte)0xfd:
+                UShort readShort = new UInt16(stream).getValue();
+                if (readShort.compareTo(ushort(0x0fc)) <= 0) {
+                    throw new IOException(Datatype.ERR_MALFORMED_BINARY);
+                }
+                return UMath.UShortToULong(readShort);
+
+            default:
+                return UMath.UByteToULong(mark.getValue());
+        }
     }
 
     /**
-     * Binary reader
-     * @todo Add error hanling
-     * @param value Source data
-     * @return Value
+     * Stream writer
+     * @param stream Destination stream
      * @throws IOException
      */
-    public ULong fromBinary(byte[] value) throws IOException {
-        switch (value[0]) {
-            case (byte)0xff:
-                return (new UInt64(Arrays.copyOfRange(value, 1, 9))).getValue();
-            case (byte)0xfe:
-                return UMath.UIntegerToULong((new UInt32(Arrays.copyOfRange(value, 1, 5))).getValue());
-            case (byte)0xfd:
-                return UMath.UShortToULong((new UInt16(Arrays.copyOfRange(value, 1, 3))).getValue());
-            default:
-                return UMath.UByteToULong((new UInt8(ubyte(value[0]))).getValue());
-        }
-    }
-
-    /**
-     * Binary representation of value
-     * @param value Source value
-     * @return Binary value
-     */
-    public byte[] toBinary(ULong value) {
+    @Override
+    public void write(OutputStream stream) throws IOException {
         if (value.compareTo(ulong(0x0fcL)) <= 0) {
-            // Single byte
-            return (new UInt8(UMath.ULongToUByte(value))).getBytes();
+            new UInt8(UMath.ULongToUByte(value)).write(stream);
         } else if (value.compareTo(ulong(0x0ffffL)) <= 0) {
-            return Bytes.concat(new byte[]{(byte)0xfd}, new UInt16(UMath.ULongToUShort(value)).getBytes());
+            stream.write(new byte[]{(byte)0xfd});
+            new UInt16(UMath.ULongToUShort(value)).write(stream);
         } else if (value.compareTo(ulong(0x0ffffffffL)) <= 0) {
-            return Bytes.concat(new byte[]{(byte)0xfe}, (new UInt32(UMath.ULongToUInteger(value)).getBytes()));
+            stream.write(new byte[]{(byte)0xfe});
+            new UInt32(UMath.ULongToUInteger(value)).write(stream);
         } else {
-            return Bytes.concat(new byte[]{(byte)0xff}, (new UInt64(value).getBytes()));
+            stream.write(new byte[]{(byte)0xff});
+            new UInt64(value).write(stream);
         }
     }
 }
