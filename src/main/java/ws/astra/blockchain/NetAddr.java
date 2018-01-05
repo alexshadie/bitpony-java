@@ -4,19 +4,29 @@ import org.joou.UInteger;
 import org.joou.ULong;
 import org.joou.UShort;
 
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 
+import static org.joou.Unsigned.uint;
+
 public class NetAddr {
+    public static final String ERR_INVALID_FORMAT = "Invalid address format";
     private UInteger time;
     private ULong services;
     private byte[] addr;
     private UShort port;
 
+    public NetAddr(ULong services, byte[] addr, UShort port) {
+        this(uint(0), services, addr, port);
+    }
+
     public NetAddr(UInteger time, ULong services, byte[] addr, UShort port) {
-        this.time = time;
-        this.services = services;
-        this.addr = addr;
-        this.port = port;
+        this.setTime(time);
+        this.setServices(services);
+        this.setAddr(addr);
+        this.setPort(port);
     }
 
     public UInteger getTime() {
@@ -40,31 +50,46 @@ public class NetAddr {
     }
 
     public void setAddr(byte[] addr) {
-        this.addr = addr;
+        if (addr == null) {
+            this.addr = null;
+        } else if (addr.length == 16) {
+            this.addr = addr;
+        } else if (addr.length == 4) {
+            this.addr = new byte[]{
+                    0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, (byte)0xff, (byte)0xff,
+                    addr[0], addr[1], addr[2], addr[3]
+            };
+        } else {
+            throw new RuntimeException(ERR_INVALID_FORMAT);
+        }
     }
 
-    public void setIPv4Addr(String addr) {
-        // Parse str and set ipv4
+    public void setIPv4Addr(String addr) throws UnknownHostException {
+        this.setIPv4Addr(Inet4Address.getByName(addr).getAddress());
     }
 
     public void setIPv4Addr(byte[] addr) {
-        this.addr = new byte[16];
-        for (int i = 0; i < 10; i++) {
-            this.addr[i] = 0x00;
+        if (addr.length != 4) {
+            throw new RuntimeException(ERR_INVALID_FORMAT);
         }
-        for (int i = 10; i < 12; i++) {
-            this.addr[i] = (byte)0xff;
-        }
-        System.arraycopy(addr, 0, this.addr, 12, 4);
+        this.setAddr(addr);
     }
 
-    public void setIPv6Addr(String addr) {
-        // Parse str and set ipv6
+    public void setIPv6Addr(String addr) throws UnknownHostException {
+        this.setIPv6Addr(Inet6Address.getByName(addr).getAddress());
     }
 
     public void setIPv6Addr(byte[] addr) {
-        this.addr = new byte[16];
-        System.arraycopy(addr, 0, this.addr, 0, 16);
+        if (addr.length != 16) {
+            throw new RuntimeException(ERR_INVALID_FORMAT);
+        }
+        this.setAddr(addr);
+    }
+
+    public boolean isIpV4() {
+        return addr != null && (addr[0] | addr[1] | addr[2] | addr[3] | addr[4] | addr[5] | addr[6] | addr[7] | addr[8] | addr[9] | ~(addr[10]) | ~(addr[11])) == 0x00;
     }
 
     public UShort getPort() {
